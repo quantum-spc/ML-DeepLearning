@@ -1,0 +1,90 @@
+import pandas as pd
+
+fish = pd.read_csv('https://bit.ly/fish_csv_data')
+fish.head()
+print(fish)
+print(pd.unique(fish['Species']))
+
+fish_input = fish[['Weight','Length','Diagonal','Height','Width']].to_numpy() # Species 열을 제외 후 나머지 5개 열만 선택
+
+print(fish_input[:5])
+
+fish_target = fish['Species'].to_numpy()
+
+from sklearn.model_selection import train_test_split
+train_input, test_input, train_target, test_target = train_test_split(fish_input, fish_target, random_state=42)
+
+from sklearn.preprocessing import StandardScaler
+ss = StandardScaler()
+ss.fit(train_input) # 훈련
+train_scaled = ss.transform(train_input)
+test_scaled = ss.transform(test_input)
+
+#k-최근접 이웃 분류기의 확률 예측
+from sklearn.neighbors import KNeighborsClassifier
+kn = KNeighborsClassifier(n_neighbors=3) # 이웃된 3개의 데이터
+kn.fit(train_scaled, train_target) # 훈련
+print(kn.score(train_scaled, train_target)) # 평가
+print(kn.score(test_scaled, test_target)) # 평가
+
+print(kn.classes_)
+print(kn.predict(test_scaled[:5]))
+
+import numpy as np
+proba = kn.predict_proba(test_scaled[:5])
+print(np.round(proba, decimals=4)) # 소수점 네번째 자리에서 반올림
+# [0.     0.     0.6667 0.     0.3333 0.     0.    ]
+# 각 클래스에 대한 확률이 순서대로 출력된다.
+
+distances, indexes = kn.kneighbors(test_scaled[3:4])
+print(train_target[indexes]) # 이웃은 다섯번째 클래스인 Roach가 1개 이고, 세번째 클래스인 Perch가 2개이기 때문에 세번째 클래스에 대한 확률은 2/3
+
+import numpy as np
+import matplotlib.pyplot as plt
+z = np.arange(-5, 5, 0.1)
+phi = 1 / (1 + np.exp(-z))
+plt.plot(z, phi)
+plt.xlabel('z')
+plt.ylabel('phi')
+plt.show()
+
+char_arr = np.array(['A', 'B', 'C', 'D', 'E'])
+print(char_arr[[True, False, True, False, False]]) # 불리언 인덱싱 : True, False 값을 전달하여 행을 선택
+
+bream_smelt_indexes = (train_target == 'Bream') | (train_target == 'Smelt')
+train_bream_smelt = train_scaled[bream_smelt_indexes]
+target_bream_smelt = train_target[bream_smelt_indexes]
+
+from sklearn.linear_model import LogisticRegression
+lr = LogisticRegression()
+lr.fit(train_bream_smelt, target_bream_smelt) # 로지스틱 회귀로 훈련
+print(lr.predict(train_bream_smelt[:5])) # 두번째 샘플을 제외하고는 전부 도미로 예측
+print(lr.predict_proba(train_bream_smelt[:5])) # 처음 5개의 샘플의 예측 확률을 출력
+print(lr.classes_)
+print(lr.coef_, lr.intercept_) # 로지스틱 회귀가 학습한 계수
+
+decisions = lr.decision_function(train_bream_smelt[:5])
+print(decisions)
+
+from scipy.special import expit # 사이파이 라이브러리의 시그모이드 함수
+print(expit(decisions))
+
+# 로지스틱 회귀로 다중 분류 수행하기
+lr = LogisticRegression(C=20, max_iter=1000)
+lr.fit(train_scaled, train_target)
+
+print(lr.score(train_scaled, train_target))
+print(lr.score(test_scaled, test_target))
+
+print(lr.predict(test_scaled[:5]))
+proba = lr.predict_proba(test_scaled[:5])
+print(np.round(proba, decimals=3))
+print(lr.classes_) # 여섯 번째 열인 Smelt를 가장 높은 확률(0.946)로 예측
+print(lr.coef_.shape, lr.intercept_.shape)
+
+decision = lr.decision_function(test_scaled[:5])
+print(np.round(decision, decimals=2))
+
+from scipy.special import softmax
+proba = softmax(decision, axis=1)
+print(np.round(proba, decimals=3))
